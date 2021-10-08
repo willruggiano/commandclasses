@@ -6,10 +6,12 @@ import logging
 import types
 import typing
 from collections import defaultdict
-from dataclasses import dataclass, asdict, InitVar, field, fields
+from dataclasses import InitVar, asdict, dataclass, field, fields
 from difflib import get_close_matches
 
-from .utils import type_str, typename, get_generic_args, NoExceptNamespace, for_each_and_between, for_each_base, flatten, watch_method, out
+from .utils import (NoExceptNamespace, flatten, for_each_and_between,
+                    for_each_base, get_generic_args, out, type_str, typename,
+                    watch_method)
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +35,8 @@ class MISSING:  # pragma: no cover
         if self.message:
             raise TypeError(self.message)
         elif self.name:
-            raise TypeError(f"the requested attribute '{self.name}' is missing")
+            raise TypeError(
+                f"the requested attribute '{self.name}' is missing")
         else:
             raise TypeError('the requested attribute is missing')
 
@@ -62,6 +65,7 @@ def generic_type_converter(*ts):
             except:
                 pass
         raise ValueError(f'cannot construct any of {ts} from {s}')
+
     return type_converter
 
 
@@ -79,11 +83,12 @@ def deprecated(_f=None,
                 msg.append(f'Consider using {alternative} instead.')
             out.error(*msg, delimiter=out.NEWLINE)
             return f(*args, **kwargs)
+
         return wraps
+
     if _f is None:
         return wrapper
     return wrapper(_f)
-
 
 
 def normalize_name(name):
@@ -96,7 +101,10 @@ def denormalize_name(name):
     return name.lstrip('-').replace('-', '_')
 
 
-def show_option(name, option, cls, override_show_help: bool = False):  # pragma: no cover
+def show_option(name,
+                option,
+                cls,
+                override_show_help: bool = False):  # pragma: no cover
     # this is the default, however some options are hidden as they pertain primarily to development of the cli rather
     # than everyday usage; the latter can be forced into the help text via the global option --show-all-help-options
     if option.show_help or override_show_help:
@@ -146,7 +154,8 @@ def show_examples(example):  # pragma: no cover
 
 @show_examples.register
 def _show_examples(examples: tuple):  # pragma: no cover
-    for_each_and_between(examples, lambda e: out.show(out.indented(e)), lambda _: out.show(out.NEWLINE))
+    for_each_and_between(examples, lambda e: out.show(out.indented(e)),
+                         lambda _: out.show(out.NEWLINE))
 
 
 @show_examples.register
@@ -155,6 +164,7 @@ def _show_descriptive_examples(examples: dict):  # pragma: no cover
         out.show(out.indented(e))
         out.show(out.indented('-' * 5))
         out.show(out.indented(examples[e], spaces=8))
+
     for_each_and_between(examples, show, lambda _: out.show(out.NEWLINE))
 
 
@@ -192,26 +202,38 @@ class Documentation:  # pragma: no cover
     def show_body(self, override_show_help: bool = False):
         if self.options:
             out.show(out.header('Options:', newline_before=True))
-            all_inherited_options = list(flatten(self.inherited_options.values()))
+            all_inherited_options = list(
+                flatten(self.inherited_options.values()))
             for opt_name, opt in sorted(self.options.items()):
                 if opt_name not in all_inherited_options:
-                    show_option(opt_name, opt, self.cls, override_show_help=override_show_help)
+                    show_option(opt_name,
+                                opt,
+                                self.cls,
+                                override_show_help=override_show_help)
         if self.inherited_options:
             for base, base_opts in sorted(self.inherited_options.items()):
-                out.show(out.header(f'Options inherited from {base}:', newline_before=True))
+                out.show(
+                    out.header(f'Options inherited from {base}:',
+                               newline_before=True))
                 for opt_name, opt in sorted(base_opts.items()):
-                    show_option(opt_name, opt, self.cls, override_show_help=override_show_help)
+                    show_option(opt_name,
+                                opt,
+                                self.cls,
+                                override_show_help=override_show_help)
         cmds = list(self.iter_commands(self.subcommands.items()))
         if cmds:
             out.show(out.header('Subcommands:', newline_before=True))
             for cmd_name, cmd in sorted(cmds):
                 out.show(out.indented(out.bold(normalize_name(cmd_name))))
                 if cmd.meta.help:
-                    out.show(out.indented(cmd.meta.help.capitalize(), spaces=8))
+                    out.show(out.indented(cmd.meta.help.capitalize(),
+                                          spaces=8))
         subcmds = list(self.iter_commands(self.inherited_subcommands.items()))
         if subcmds:
             for base, base_cmds in sorted(subcmds):
-                out.show(out.header(f'Subcommands inherited from {base}:', newline_before=True))
+                out.show(
+                    out.header(f'Subcommands inherited from {base}:',
+                               newline_before=True))
                 for cmd_name, cmd in sorted(base_cmds):
                     out.show(out.indented(out.bold(normalize_name(cmd_name))))
                     out.show(out.indented(cmd.meta.help, spaces=8))
@@ -226,11 +248,16 @@ class Documentation:  # pragma: no cover
                 out.show(out.indented(note))
         out.show(out.header('To see help text:', newline_before=True))
         # TODO: Generic help text.
-        out.show(out.indented('{prog} help', '{prog} <command> [<subcommand> ...] help', prog, delimiter=out.NEWLINE))
+        out.show(
+            out.indented('{prog} help',
+                         '{prog} <command> [<subcommand> ...] help',
+                         prog,
+                         delimiter=out.NEWLINE))
 
     def __call__(self, *args, **kwargs):
         self.show_header()
-        self.show_body(override_show_help=kwargs.get('show_all_help_options', False))
+        self.show_body(
+            override_show_help=kwargs.get('show_all_help_options', False))
         self.show_footer()
 
     # Implement a str() operator since we explicitly disable repr generation for the sake of watch_method debugging
@@ -250,16 +277,17 @@ def _build_documentation(cls):  # pragma: no cover
             usage_str += ' [arguments]'
         return usage_str
 
-    return Documentation(cls=cls,
-                         name=cls.meta.name,
-                         description=cls.meta.help,
-                         examples=cls.meta.examples,
-                         notes=cls.meta.notes,
-                         options=args,
-                         inherited_options=getattr(cls, '__inherited_arguments__', {}),
-                         subcommands=cmds,
-                         inherited_subcommands=getattr(cls, '__inherited_commands__', {}),
-                         usage=cls.meta.usage or usage())
+    return Documentation(
+        cls=cls,
+        name=cls.meta.name,
+        description=cls.meta.help,
+        examples=cls.meta.examples,
+        notes=cls.meta.notes,
+        options=args,
+        inherited_options=getattr(cls, '__inherited_arguments__', {}),
+        subcommands=cmds,
+        inherited_subcommands=getattr(cls, '__inherited_commands__', {}),
+        usage=cls.meta.usage or usage())
 
 
 Predicate = typing.Callable[..., bool]
@@ -291,17 +319,9 @@ class Argument:
     default: typing.Any = None
     help: str = None
 
-    def __post_init__(self,
-                      aliases_,
-                      allow_inverse_,
-                      choices_help_formatter_,
-                      default_factory_,
-                      default_help_formatter_,
-                      meta_args_,
-                      required_,
-                      required_when_,
-                      illegal_when_,
-                      show_help_,
+    def __post_init__(self, aliases_, allow_inverse_, choices_help_formatter_,
+                      default_factory_, default_help_formatter_, meta_args_,
+                      required_, required_when_, illegal_when_, show_help_,
                       type_converter_):
         self.aliases = aliases_
         self.allow_inverse = allow_inverse_
@@ -321,17 +341,26 @@ class Argument:
 
     @property
     def invertible(self):  # pragma: no cover
-        return self.type is bool and self.allow_inverse and not self.name.startswith('no')
+        return self.type is bool and self.allow_inverse and not self.name.startswith(
+            'no')
 
     @property
     def properties(self):
-        return {k: v for k, v in {**asdict(self), **self.meta_args}.items() if v is not None}
+        return {
+            k: v
+            for k, v in {
+                **asdict(self),
+                **self.meta_args
+            }.items() if v is not None
+        }
 
     def add_to(self, parser, parent):
         properties = self.properties
         # set the type property:
         if self.type_converter or get_generic_args(self.type):
-            properties.update(type=self.type_converter or generic_type_converter(*get_generic_args(self.type)))
+            properties.update(
+                type=self.type_converter or generic_type_converter(
+                    *get_generic_args(self.type)))
         elif self.type not in (None, bool, list, tuple):
             properties.update(type=self.type)
         # set the action property:
@@ -357,7 +386,8 @@ class Argument:
             group.add_argument(*names_and_flags, **properties)
             # add a --no-flag option:
             properties['action'] = 'store_false'
-            group.add_argument(f'--no-{normalize_name(self.name)}', **properties)
+            group.add_argument(f'--no-{normalize_name(self.name)}',
+                               **properties)
         else:
             parser.add_argument(*names_and_flags, **properties)
 
@@ -410,7 +440,9 @@ def _default_parser(self_):
         def _show_closest_matches(self, action, value):
             matches = get_close_matches(value, action.choices)
             if matches:
-                out.error(f"Unknown choice '{value}'. Perhaps you meant one of: {matches}?")
+                out.error(
+                    f"Unknown choice '{value}'. Perhaps you meant one of: {matches}?"
+                )
             return matches
 
     return HelpfulArgumentParser()
@@ -449,30 +481,45 @@ def inject_command_documentation(instance):
     doc = _build_documentation(instance)
     show_help = getattr(instance, '__choose_help__', doc)
 
-    add_to_commandclass(instance, help=Commandclass(typename(instance) + 'Help', (),
-                                                    # attrs:
-                                                    {
-                                                        '__help__': True,
-                                                        '__call__': show_help
-                                                    },
-                                                    # meta_args:
-                                                    **dict(help='show detailed documentation for this command')))
+    add_to_commandclass(
+        instance,
+        help=Commandclass(
+            typename(instance) + 'Help',
+            (),
+            # attrs:
+            {
+                '__help__': True,
+                '__call__': show_help
+            },
+            # meta_args:
+            **dict(help='show detailed documentation for this command')))
 
 
 def inject_completions_command(instance):
     """Generate shell completion options for a commandclass instance."""
     def call(*args, **kwargs):
-        out.show(*itertools.filterfalse(lambda k: get_command(instance, k).meta.hidden, commands(instance)),
-                 *map(lambda a: f'--{normalize_name(a)}', filter(lambda k: get_argument(instance, k).show_help, arguments(instance))),
+        out.show(*itertools.filterfalse(
+            lambda k: get_command(instance, k).meta.hidden,
+            commands(instance)),
+                 *map(
+                     lambda a: f'--{normalize_name(a)}',
+                     filter(lambda k: get_argument(instance, k).show_help,
+                            arguments(instance))),
                  delimiter=out.NEWLINE)
-    add_to_commandclass(instance, completions=make_commandclass(f'Complete{typename(instance)}Command', [],
-                                                                name='completions', call=call, hidden=True))
+
+    add_to_commandclass(instance,
+                        completions=make_commandclass(
+                            f'Complete{typename(instance)}Command', [],
+                            name='completions',
+                            call=call,
+                            hidden=True))
 
 
 def _check_requirements_when_present(arg, instance):
     invalid = False
     if arg.illegal_when and arg.illegal_when(instance):
-        out.error(f'--{normalize_name(arg.name)} is illegal, due to other options')
+        out.error(
+            f'--{normalize_name(arg.name)} is illegal, due to other options')
         invalid = True
     return invalid
 
@@ -483,7 +530,9 @@ def _check_requirements_when_missing(arg, instance):
         out.error(f'--{normalize_name(arg.name)} is required but missing')
         invalid = True
     if arg.required_when and arg.required_when(instance):
-        out.error(f'--{normalize_name(arg.name)} is required, due to other options, but missing')
+        out.error(
+            f'--{normalize_name(arg.name)} is required, due to other options, but missing'
+        )
         invalid = True
     return invalid
 
@@ -501,21 +550,29 @@ class InvalidArgumentException(Exception):
 
 
 def _check_required_arguments(instance, *args, **kwargs):
-    if any(list(filter(lambda a: _check_requirement(a, instance), arguments(instance).values()))):
+    if any(
+            list(
+                filter(lambda a: _check_requirement(a, instance),
+                       arguments(instance).values()))):
         raise InvalidArgumentException('invalid argument(s) given to command')
 
 
 class Commandclass(type):
     """A metaclass that creates the actual command classes."""
-
     @watch_method(show_all=True, log_level=0)  # logging.NOTSET
     def __new__(mcs, clsname, bases, attrs, **meta_args):
-        attrs['__commandclasscheck__'] = True  # label this class as a commandclass
-        meta_args['name'] = denormalize_name(meta_args.get('name', clsname.lower()))
-        bases, attrs = mcs._create_argument_list(clsname, bases, attrs, **meta_args)
-        bases, attrs = mcs._create_command_list(clsname, bases, attrs, **meta_args)
-        bases, attrs = mcs._create_parser_hooks(clsname, bases, attrs, **meta_args)
-        bases, attrs = mcs._create_call_method(clsname, bases, attrs, **meta_args)
+        attrs[
+            '__commandclasscheck__'] = True  # label this class as a commandclass
+        meta_args['name'] = denormalize_name(
+            meta_args.get('name', clsname.lower()))
+        bases, attrs = mcs._create_argument_list(clsname, bases, attrs,
+                                                 **meta_args)
+        bases, attrs = mcs._create_command_list(clsname, bases, attrs,
+                                                **meta_args)
+        bases, attrs = mcs._create_parser_hooks(clsname, bases, attrs,
+                                                **meta_args)
+        bases, attrs = mcs._create_call_method(clsname, bases, attrs,
+                                               **meta_args)
         attrs['meta'] = NoExceptNamespace(**meta_args)
         cls = super().__new__(mcs, clsname, bases, attrs)
         REGISTRY[meta_args['name']].append(cls)
@@ -525,7 +582,9 @@ class Commandclass(type):
         instance = super().__call__(*args, **kwargs)
         BREADCRUMBS[instance.meta.name] = cls
         if Commandclass.has_command(cls, 'help'):
-            log.debug("Skipping generated help command for '%s' with a user-defined help command.", cls.__name__)
+            log.debug(
+                "Skipping generated help command for '%s' with a user-defined help command.",
+                cls.__name__)
         else:
             inject_command_documentation(instance)
         # 2020-10-04 WMR Adding shell completion functionality
@@ -539,7 +598,8 @@ class Commandclass(type):
         args = {}
         inherited_args = defaultdict(dict)
 
-        dryrun = argument(help='echo input to stdout and exit', action='store_true')
+        dryrun = argument(help='echo input to stdout and exit',
+                          action='store_true')
         dryrun.name = denormalize_name('--dryrun')
         dryrun.type = bool
         args[dryrun.name] = dryrun
@@ -569,7 +629,9 @@ class Commandclass(type):
             process_arguments(base.__name__, vars(base), base_class=base)
 
         # base classes first
-        for_each_base(bases, process_base, predicate=lambda c: not Commandclass.is_commandclass(c))
+        for_each_base(bases,
+                      process_base,
+                      predicate=lambda c: not Commandclass.is_commandclass(c))
         # and finally this class (so our arguments take precedence over base class arguments)
         process_arguments(clsname, attrs.copy())
 
@@ -590,7 +652,9 @@ class Commandclass(type):
                     cmds[c_name] = c
                     inherited_cmds[name].append((c_name, c))
             else:
-                for a_name, a in filter(lambda e: Commandclass.is_commandclass(e[1]), cls_attrs.items()):
+                for a_name, a in filter(
+                        lambda e: Commandclass.is_commandclass(e[1]),
+                        cls_attrs.items()):
                     cmds[normalize_name(a_name)] = a
                     if a_name in attrs:  # so we don't KeyError when processing base classes
                         del attrs[a_name]
@@ -601,7 +665,9 @@ class Commandclass(type):
             process_subcommands(base.__name__, vars(base), base_class=base)
 
         # base classes first
-        for_each_base(bases, process_base, predicate=lambda c: not Commandclass.is_commandclass(c))
+        for_each_base(bases,
+                      process_base,
+                      predicate=lambda c: not Commandclass.is_commandclass(c))
         # and finally this class (so our commands take precedence over base class commands)
         process_subcommands(clsname, attrs.copy())
 
@@ -627,7 +693,9 @@ class Commandclass(type):
             p = _default_parser(self_)
             for _, a in arguments(self_).items():
                 a.add_to(p, parent=self_)
-            p.add_argument('subcommand', action=_subcommand_action(commands(self_), main), nargs='?')
+            p.add_argument('subcommand',
+                           action=_subcommand_action(commands(self_), main),
+                           nargs='?')
 
             def parser(*args):
                 namespace, args = p.parse_known_args(args)
@@ -661,9 +729,13 @@ class Commandclass(type):
         will validate that any "required" arguments have values. Note that the __before_call__ hook will only be called
         on the leaf command, i.e. interim commands will not have their __before_call__ method called!
         """
-        before_call = watch_method(attrs.get('__before_call__', _check_required_arguments))
-        user_call = watch_method(attrs.get('__call__', PASS), show_all=True)  # N.B. log_level=DEBUG
-        parse = attrs.get('__parse__', MISSING(message=f'{clsname} is missing a parse function!'))
+        before_call = watch_method(
+            attrs.get('__before_call__', _check_required_arguments))
+        user_call = watch_method(attrs.get('__call__', PASS),
+                                 show_all=True)  # N.B. log_level=DEBUG
+        parse = attrs.get(
+            '__parse__',
+            MISSING(message=f'{clsname} is missing a parse function!'))
 
         @functools.wraps(user_call)
         def call(self_, *args, **kwargs):
@@ -685,7 +757,8 @@ class Commandclass(type):
                 if self_.dryrun or kwargs.get('dryrun'):
                     out.show('args: ', out.jsonified(args, indent=None))
                     out.show('kwargs: ', out.jsonified(kwargs, indent=None))
-                    out.show('self: ', out.jsonified(as_dict(self_), indent=None))
+                    out.show('self: ',
+                             out.jsonified(as_dict(self_), indent=None))
                     return
 
                 # and note that we MUST pass self_ here since "f" is an unbound method!
@@ -704,25 +777,32 @@ class Commandclass(type):
 
     @staticmethod
     def is_commandclass(class_or_instance):
-        cls = class_or_instance if isinstance(class_or_instance, type) else type(class_or_instance)
+        cls = class_or_instance if isinstance(
+            class_or_instance, type) else type(class_or_instance)
         return hasattr(cls, '__commandclasscheck__')
 
     @staticmethod
     def arguments(class_or_instance):
         if not Commandclass.is_commandclass(class_or_instance):
-            raise TypeError(f'cannot call arguments(...) on non-commandclass type or instance: {class_or_instance!r}')
+            raise TypeError(
+                f'cannot call arguments(...) on non-commandclass type or instance: {class_or_instance!r}'
+            )
         return getattr(class_or_instance, '__arguments__', {})
 
     @staticmethod
     def commands(class_or_instance):
         if not Commandclass.is_commandclass(class_or_instance):
-            raise TypeError(f'cannot call commands(...) on non-commandclass type or instance: {class_or_instance!r}')
+            raise TypeError(
+                f'cannot call commands(...) on non-commandclass type or instance: {class_or_instance!r}'
+            )
         return getattr(class_or_instance, '__commands__', {})
 
     @staticmethod
     def has_command(class_or_instance, command_name):
         if not Commandclass.is_commandclass(class_or_instance):
-            raise TypeError(f'cannot call has_command(...) on non-commandclass type or instance: {class_or_instance!r}')
+            raise TypeError(
+                f'cannot call has_command(...) on non-commandclass type or instance: {class_or_instance!r}'
+            )
         return command_name in commands(class_or_instance)
 
 
@@ -752,16 +832,25 @@ def get_command(class_or_instance, name):
 
 def commandclass(_cls=None, **kwargs):
     """dataclass-style decorator that constructs a command class from the given class spec."""
-
     def wrap(cls):
-        return Commandclass(cls.__name__, cls.__bases__, dict(cls.__dict__), type=cls, **kwargs)
+        return Commandclass(cls.__name__,
+                            cls.__bases__,
+                            dict(cls.__dict__),
+                            type=cls,
+                            **kwargs)
 
     if _cls is None:
         return wrap
     return wrap(_cls)
 
 
-def make_commandclass(cls_name, args_or_cmds=(), *, call: callable = PASS, name: str = None, bases=(), namespace=None,
+def make_commandclass(cls_name,
+                      args_or_cmds=(),
+                      *,
+                      call: callable = PASS,
+                      name: str = None,
+                      bases=(),
+                      namespace=None,
                       **kwargs):
     """Create a commandclass dynamically.
 
@@ -806,7 +895,8 @@ def make_commandclass(cls_name, args_or_cmds=(), *, call: callable = PASS, name:
             tp = str
             namespace[a_name] = argument()
         elif is_commandclass(e):
-            a_name = e.meta.name or raise_missing(message=f'{e!r} is missing a name attribute')
+            a_name = e.meta.name or raise_missing(
+                message=f'{e!r} is missing a name attribute')
             a_name = denormalize_name(a_name)
             tp = e
         elif len(e) == 2:
@@ -822,10 +912,12 @@ def make_commandclass(cls_name, args_or_cmds=(), *, call: callable = PASS, name:
             if is_argument(spec):
                 namespace[a_name] = spec
             else:
-                raise ValueError(f'the spec for {a_name!r} must be an Argument')
+                raise ValueError(
+                    f'the spec for {a_name!r} must be an Argument')
         else:
             raise ValueError(
-                'argument and command specs must be one of [str|Commandclass, (str, type|Argument|Commandclass), (str, type, Argument)]')
+                'argument and command specs must be one of [str|Commandclass, (str, type|Argument|Commandclass), (str, type, Argument)]'
+            )
 
         if not isinstance(a_name, str) or not a_name.isidentifier():
             raise ValueError(f'{a_name!r} is not a valid identifier')
@@ -860,7 +952,8 @@ def add_to_commandclass(class_or_instance, **changes):
     """
     if not is_commandclass(class_or_instance):
         raise TypeError(
-            f'cannot call add_to_commandclass() on non-commandclass type or instance: {type(class_or_instance).__name__}')
+            f'cannot call add_to_commandclass() on non-commandclass type or instance: {type(class_or_instance).__name__}'
+        )
 
     args = {a_name: a for a_name, a in arguments(class_or_instance).items()}
     cmds = {c_name: c for c_name, c in commands(class_or_instance).items()}
@@ -869,16 +962,22 @@ def add_to_commandclass(class_or_instance, **changes):
         if is_argument(a):
             a.name = a.name or a_name
             args[denormalize_name(a_name)] = a
-            setattr(class_or_instance, a_name, None)  # so we don't AttributeError when we as_dict(...)
+            setattr(class_or_instance, a_name,
+                    None)  # so we don't AttributeError when we as_dict(...)
         elif is_commandclass(a):
             a.meta.name = a.meta.name or a_name
             cmds[normalize_name(a_name)] = a
         else:
-            raise TypeError(f'cannot call add_to_commandclass() with non-(argument,subcommand) changes: {a_name}')
+            raise TypeError(
+                f'cannot call add_to_commandclass() with non-(argument,subcommand) changes: {a_name}'
+            )
 
     setattr(class_or_instance, '__arguments__', args)
     setattr(class_or_instance, '__commands__', cmds)
 
 
 def as_dict(instance):
-    return {a_name: getattr(instance, a_name) for a_name, _ in arguments(instance).items()}
+    return {
+        a_name: getattr(instance, a_name)
+        for a_name, _ in arguments(instance).items()
+    }
