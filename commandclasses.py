@@ -9,9 +9,11 @@ from collections import defaultdict
 from dataclasses import InitVar, asdict, dataclass, field, fields
 from difflib import get_close_matches
 
-from .utils import (NoExceptNamespace, flatten, for_each_and_between,
-                    for_each_base, get_generic_args, out, type_str, typename,
-                    watch_method)
+from . import out
+from .debugging import watch_method
+from .iterator_algos import flatten, for_each_and_between, for_each_base
+from .namespace import NoExceptNamespace
+from .type_traits import get_generic_args, type_str, typename
 
 log = logging.getLogger(__name__)
 
